@@ -1,0 +1,29 @@
+program hello;
+var
+  valor1, valor20: integer;
+  valor2: real;
+  valor3: boolean;
+  valor4: boolean;
+  
+procedure add(a: integer; b:integer);
+var
+	valor5: integer;
+begin
+	a := a + b;
+end;
+   
+begin
+  valor1 := 10;
+  valor2 := 1.2002;
+  
+  if (valor1 >= 30) and (valor2 <= 50) then
+  	valor3 := true
+  else
+  	valor3 := false;
+  
+  while valor1 > valor2 do
+  	valor1 := valor1 - 1;
+  		
+  sub(valor1, valor2);
+end
+.

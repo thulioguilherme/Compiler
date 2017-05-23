@@ -1,0 +1,194 @@
+package compiler;
+
+import java_cup.runtime.*;
+import java.util.HashSet;
+import java.util.LinkedList;
+
+parser code
+{:  
+	static int error_count = 0;
+	  
+    public void syntax_error(Symbol s){
+        System.out.println("O compilador encontrou um erro síntatico na linha "+ s.left + " coluna "+ s.right +".");
+    }
+    
+    public static void newScope(){
+		typenames.push(new HashSet<String>());
+     }
+      
+     public static void deleteScope(){
+		typenames.pop();
+     }
+     
+     public static boolean lookupType(String name){
+		for (HashSet<String> scope: typenames)
+	    	if (scope.contains(name)) return true;
+				return false;
+     }
+    
+     public static void addType(String name){
+		typenames.peek().add(name);
+     }
+    
+     public static LinkedList<HashSet<String>> typenames = new LinkedList<HashSet<String>>();
+    
+:}
+
+terminal INF, TIMES, PLUS, MINUS, DIVIDE, SEMI, COMMA, LT_PAREN, RT_PAREN, EQ, GTR, LESS, LESS_EQ, GTR_EQ, NOT_EQ, COLON, ASSMNT, DOT, OR, NOT, DO, WHILE, THEN, ELSE, IF, END, PROCEDURE, INTEGER, REAL, BOOLEAN, BEGIN, VAR, PROGRAM, AND;
+
+terminal String IDENTIFIER;
+terminal Integer INTEGER_LIT;
+terminal Double REAL_LIT;
+terminal Boolean BOOLEAN_LIT;
+
+non terminal programa, declaracao_variaveis, lista_de_identificadores, lista_de_identificadores_cauda, declaracao_de_subprograma, declaracao_de_subprogramas, comando_composto, lista_declaracoes_variaveis, tipo, lista_declaracoes_variaveis_cauda, argumentos, lista_de_parametros, lista_de_parametros_cauda, lista_de_comandos, variavel, expressao, ativacao_de_procedimento, parte_else, ativacao_de_procedimento_cauda, lista_de_expressoes, lista_de_expressoes_cauda, expressao_simples, expressao_cauda, termo, sinal, op_aditivo, expressao_simples_cauda, fator, fator_cauda, op_multiplicativo, op_relacional, comando, termo_cauda;
+
+
+/* Solve Shift/Reduce conflict */
+precedence nonassoc THEN;
+precedence nonassoc ELSE;
+
+start with programa;
+
+programa ::= PROGRAM IDENTIFIER:id {:
+			 	Parser.newScope();
+			 	Parser.addType(id.toString());
+			 :}
+			 SEMI 
+			 declaracao_variaveis
+			 declaracao_de_subprogramas
+			 comando_composto
+			 {: Parser.deleteScope(); :}
+			 DOT;
+
+declaracao_variaveis ::= VAR lista_declaracoes_variaveis 
+						 | /* epsilon */;
+
+lista_declaracoes_variaveis ::= lista_de_identificadores COLON tipo SEMI
+								lista_declaracoes_variaveis_cauda;
+
+lista_declaracoes_variaveis_cauda ::= lista_declaracoes_variaveis
+								 	  | /* epsilon */;
+
+lista_de_identificadores ::= IDENTIFIER:id
+						     {:
+						     	Parser.newScope();
+							  	if( Parser.lookupType(id.toString()) ){
+							  		System.out.println("O identificador "+ id.toString() + " já foi declarado.");
+							  		Parser.error_count++;
+							  	}else{
+							  		Parser.addType(id.toString());
+							  	}
+						     :}
+						     lista_de_identificadores_cauda;
+
+lista_de_identificadores_cauda ::= COMMA IDENTIFIER lista_de_identificadores_cauda 
+								   | /* epsilon */;
+
+tipo ::= INTEGER 
+		 | REAL 
+		 | BOOLEAN;
+
+declaracao_de_subprogramas ::= declaracao_de_subprograma SEMI declaracao_de_subprogramas 
+									 | /* epsilon */;
+
+declaracao_de_subprograma ::= PROCEDURE IDENTIFIER:id
+							  {:
+							  	Parser.newScope();
+							  	if( Parser.lookupType(id.toString()) ){
+							  		System.out.println("O identificador "+ id.toString() + " já foi declarado.");
+							  		Parser.error_count++;
+							  	}else{
+							  		Parser.addType(id.toString());
+							  	}	  	
+							  :}
+							  argumentos SEMI
+							  declaracao_variaveis
+							  declaracao_de_subprogramas
+							  comando_composto
+							  {: Parser.deleteScope(); :}
+							  ;
+
+argumentos ::= LT_PAREN lista_de_parametros RT_PAREN 
+			   | /* epsilon */;
+
+lista_de_parametros ::= lista_de_identificadores COLON tipo lista_de_parametros_cauda;
+
+lista_de_parametros_cauda ::= SEMI lista_de_identificadores COLON tipo lista_de_parametros_cauda 
+							  | /* epsilon */;
+
+comando_composto ::= BEGIN lista_de_comandos END;
+
+lista_de_comandos ::= comando SEMI lista_de_comandos | /* epsilon */;
+
+comando ::= variavel ASSMNT expressao 
+			| ativacao_de_procedimento
+			| comando_composto 
+			| IF expressao THEN comando parte_else 
+			| WHILE expressao DO comando;
+
+parte_else ::= ELSE comando 
+			   | /* epsilon */;
+
+variavel ::= IDENTIFIER:id {: 
+				if( !Parser.lookupType(id.toString()) ){
+					System.out.println("A variavel "+ id.toString() +" nao foi instanciada!");
+					Parser.error_count++;
+				}	
+			:};
+
+ativacao_de_procedimento ::= IDENTIFIER:id
+							 {:
+							 	if( !Parser.lookupType(id.toString()) ){
+							 		System.out.println("Procedimento "+ id.toString() +" não declarado!");
+							 		Parser.error_count++;
+							 	}
+							 :}
+							 ativacao_de_procedimento_cauda;
+
+ativacao_de_procedimento_cauda ::= LT_PAREN lista_de_expressoes RT_PAREN 
+								   | /* epsilon */;
+
+lista_de_expressoes ::= expressao lista_de_expressoes_cauda;
+
+lista_de_expressoes_cauda ::= COMMA expressao lista_de_expressoes_cauda 
+							  | /* epsilon */;
+
+expressao ::= expressao_simples expressao_cauda;
+
+expressao_cauda ::= op_relacional expressao_simples 
+					| /* epsilon */;
+
+expressao_simples ::= termo expressao_simples_cauda 
+					  | sinal termo expressao_simples_cauda;
+
+expressao_simples_cauda ::= op_aditivo termo expressao_simples_cauda 
+							| /* epsilon */;
+
+termo ::= fator termo_cauda;
+
+termo_cauda ::= op_multiplicativo fator termo_cauda 
+				| /* epsilon */;
+
+fator ::= IDENTIFIER:id {:
+			 if( !Parser.lookupType(id.toString()) ){
+				System.out.println("A variavel "+ id.toString() +" nao foi instanciada!");
+				Parser.error_count++;
+			 }
+		  :}
+		  fator_cauda 
+		  | INTEGER_LIT 
+		  | REAL_LIT
+		  | BOOLEAN_LIT
+		  | LT_PAREN expressao RT_PAREN 
+		  | NOT fator;
+
+fator_cauda ::= LT_PAREN lista_de_expressoes RT_PAREN | /* epsilon */;
+
+sinal ::= PLUS | MINUS;
+
+op_relacional ::= EQ | GTR | LESS | LESS_EQ | GTR_EQ | NOT_EQ | INF;
+
+op_aditivo ::= PLUS | MINUS | OR;
+
+op_multiplicativo ::= TIMES | DIVIDE | AND;

@@ -1,0 +1,9 @@
+program final;
+var
+	x: boolean;
+	y: boolean;
+	z: boolean;
+begin
+	z := x -> y;
+end
+.
